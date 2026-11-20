@@ -251,6 +251,23 @@ svg.fig path.prop{fill:none}
 .mode.on{border-color:var(--c);box-shadow:0 0 0 1px var(--c) inset,0 6px 18px color-mix(in srgb,var(--c) 25%,transparent);background:linear-gradient(160deg,color-mix(in srgb,var(--c) 22%,var(--card2)),var(--card2))}
 .mode.on b{color:var(--c)}
 .eqgrid.mini .eqt{padding:7px 2px;font-size:11px}.eqgrid.mini .eqt span{font-size:18px}
+.kcalbox{border-radius:16px;padding:14px;margin-bottom:12px;background:linear-gradient(150deg,rgba(62,224,168,.16),var(--card2) 70%);border:1px solid rgba(62,224,168,.35);--k:var(--c-mint)}
+.kcalbox.sur{background:linear-gradient(150deg,rgba(167,139,250,.18),var(--card2) 70%);border-color:rgba(167,139,250,.4);--k:var(--c-violet)}
+.kcalbox.main{background:linear-gradient(150deg,rgba(92,200,255,.16),var(--card2) 70%);border-color:rgba(92,200,255,.35);--k:var(--c-blue)}
+.kc-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.kc-row span{display:block;font-size:12px;color:var(--mut)}.kc-row b{font-size:22px;letter-spacing:-.3px}
+.kc-target{color:var(--k)}.kc-arrow{font-size:22px;color:var(--mut)}
+.kc-bars{display:flex;flex-direction:column;gap:4px;margin:10px 0}
+.kc-bars i{display:block;height:8px;border-radius:9px}.kc-m{background:#3a4152}.kc-t{background:var(--k)}
+.kc-diff{font-size:14px}.kc-diff b{color:var(--k)}.kc-diff span{font-size:13px;color:var(--mut)}
+.zonebox{margin-top:12px;background:var(--card2);border-radius:16px;padding:14px;border:1px solid var(--line)}
+.zt{color:#ff6b6b}
+.zrow{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:10px;margin-top:4px;opacity:.6}
+.zrow.on{opacity:1;background:rgba(255,107,107,.12);box-shadow:0 0 0 1px rgba(255,107,107,.45) inset}
+.zn{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;font-weight:800;font-size:13px;color:#10131a;flex:none}
+.z1 .zn{background:#9aa3b2}.z2 .zn{background:#5cc8ff}.z3 .zn{background:#3ee0a8}.z4 .zn{background:#ffd166}.z5 .zn{background:#ff6b6b}
+.zt2{flex:1;min-width:0}.zt2 b{display:block;font-size:13px}.zt2 span{font-size:11.5px;color:var(--mut);line-height:1.25;display:block}
+.zb{font-weight:700;font-size:14px;white-space:nowrap}.zb small{font-size:10px;color:var(--mut);font-weight:500}
 </style>
 </head>
 <body>
@@ -284,6 +301,11 @@ svg.fig path.prop{fill:none}
       <button class="goal" data-v="endurance"><span class="ic">🫀</span><b>Endurance / forme</b><span>Fractionné, cardio</span></button>
     </div>
     <p class="mut small" id="goalHelp" style="margin:8px 2px 0"></p>
+    <div id="defBox" style="display:none">
+      <label class="f">Intensité du déficit</label>
+      <div class="seg" id="deficit"><button data-v="leger">Léger −10 %</button><button data-v="modere">Modéré −20 %</button><button data-v="marque">Marqué −25 %</button></div>
+      <p class="mut small" id="defHelp" style="margin:6px 2px 0"></p>
+    </div>
     <label class="f">Séances par semaine</label>
     <div class="seg" id="jours"><button data-v="2">2</button><button data-v="3">3</button><button data-v="4">4</button><button data-v="5">5</button><button data-v="6">6</button></div>
     <label class="f">Type d'entraînement</label>
@@ -827,7 +849,9 @@ const STRETCH=[
 const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const $=s=>document.querySelector(s);
 let profile=store.get('fc_profile',null);
-const form={sexe:'H',niveau:'1',objectifs:['perte'],jours:'3',mode:'pdc'};
+const form={sexe:'H',niveau:'1',objectifs:['perte'],jours:'3',mode:'pdc',deficit:'modere'};
+const DEFICITS={leger:{n:'Léger',p:.10,d:'Perte lente (≈ 0,25 à 0,4 kg par semaine), très facile à tenir.'},modere:{n:'Modéré',p:.20,d:'Le bon compromis : environ 0,5 kg par semaine.'},marque:{n:'Marqué',p:.25,d:'Plus rapide mais plus dur à tenir : faim, fatigue. À garder sur quelques semaines.'}};
+const HRZ=[{n:1,lo:.5,hi:.6,t:'Récupération',d:'Très facile, échauffement'},{n:2,lo:.6,hi:.7,t:'Endurance fondamentale',d:'Tu parles en phrases complètes. Idéal pour brûler les graisses'},{n:3,lo:.7,hi:.8,t:'Tempo',d:'Phrases courtes. Améliore le cardio'},{n:4,lo:.8,hi:.9,t:'Seuil',d:'Quelques mots seulement. Fractionné'},{n:5,lo:.9,hi:1,t:'Effort maximal',d:'Sprints très courts'}];
 const MODES={pdc:{n:'Sans matériel',ic:'🏠'},mat:{n:'Avec matériel',ic:'🏋️'},cali:{n:'Calisthenics',ic:'🤸'}};
 const CALI_EQ=['barre','barres_par','parallettes'];
 const GORDER=['perte','muscle','force','endurance'];
@@ -851,14 +875,20 @@ function bilan(p){
   const fact={2:1.375,3:1.45,4:1.55,5:1.65,6:1.725}[p.jours];
   const tdee=bmr*fact;
   const gs=goalsOf(p);
-  const mult=avg(gs.map(g=>({perte:.8,muscle:1.1,force:1.05,endurance:1})[g]));
-  let kcal=tdee*mult;if(gs.includes('perte'))kcal=Math.max(kcal,p.sexe==='H'?1500:1200,bmr);
+  // Ajustement : déficit choisi si « perte » (divisé par 2 avec muscle/force = recomposition), sinon surplus/maintien
+  let pct;
+  if(gs.includes('perte')){const d=(DEFICITS[p.deficit]||DEFICITS.modere).p;pct=-(gs.some(STRENGTH)?d/2:d)}
+  else pct=avg(gs.map(g=>({muscle:.1,force:.05,endurance:0})[g]));
+  let kcal=tdee*(1+pct),floored=false;const floor=Math.max(p.sexe==='H'?1500:1200,bmr);
+  if(pct<0&&kcal<floor){kcal=floor;floored=true}
   const prot=Math.round(p.poids*Math.max(...gs.map(g=>({perte:1.8,muscle:1.8,force:1.7,endurance:1.4})[g])));
   const eau=(p.poids*.035+.5).toFixed(1);
   const fcmax=Math.round(208-.7*p.age);
   const Z={perte:[.6,.7],muscle:[.6,.7],force:[.6,.7],endurance:[.7,.85]},zone=[avg(gs.map(g=>Z[g][0])),avg(gs.map(g=>Z[g][1]))];
+  const zones=HRZ.filter(z=>z.lo<zone[1]-.001&&z.hi>zone[0]+.001).map(z=>z.n);
+  const tdeeR=Math.round(tdee/10)*10,kcalR=Math.round(kcal/10)*10,diff=kcalR-tdeeR;
   const low=p.noJump||p.age>=55||imc>=30;
-  return{imc,imcCat,bmr,tdee,kcal:Math.round(kcal/10)*10,prot,eau,fcmax,zone,low};
+  return{imc,imcCat,bmr,tdee:tdeeR,kcal:kcalR,diff,pct:diff/tdeeR,kgWeek:diff*7/7700,floored,prot,eau,fcmax,zone,zones,low};
 }
 
 // Paramètres d'entraînement selon l'objectif (index = niveau 1..3)
@@ -983,7 +1013,9 @@ function segInit(id,key){
 function segSync(){
   document.querySelectorAll('#objectif button').forEach(b=>b.classList.toggle('on',form.objectifs.includes(b.dataset.v)));
   $('#goalHelp').textContent=comboTxt({objectifs:form.objectifs})||'Tu peux en sélectionner plusieurs.';
-  for(const [id,key] of [['sexe','sexe'],['niveau','niveau'],['jours','jours']])
+  const hasPerte=form.objectifs.includes('perte');$('#defBox').style.display=hasPerte?'block':'none';
+  $('#defHelp').textContent=DEFICITS[form.deficit].d+(hasPerte&&form.objectifs.some(STRENGTH)?' Avec un objectif muscle ou force, le déficit est divisé par 2 pour garder ton muscle (recomposition).':'');
+  for(const [id,key] of [['sexe','sexe'],['niveau','niveau'],['jours','jours'],['deficit','deficit']])
     document.querySelectorAll('#'+id+' button').forEach(b=>b.classList.toggle('on',b.dataset.v===String(form[key])));
   $('#nivHelp').textContent=NIVHELP[form.niveau];
   document.querySelectorAll('#mode button').forEach(b=>b.classList.toggle('on',b.dataset.v===form.mode));
@@ -1006,13 +1038,13 @@ function renderModeExtra(){
   box.querySelectorAll('[data-peq]').forEach(b=>b.onclick=()=>{const k=b.dataset.peq,t=new Set(EQS.list);t.has(k)?t.delete(k):t.add(k);EQS.list=[...t];saveEQS();renderModeExtra()});
   const g=$('#pGym');if(g)g.onclick=()=>{const t=new Set(EQS.list),all=GYM_EQ.every(k=>t.has(k));(all?GYM_EQ:GYM_ALL).forEach(k=>all?t.delete(k):t.add(k));EQS.list=[...t];saveEQS();renderModeExtra()};
 }
-['sexe','niveau','jours'].forEach(k=>segInit(k,k));
+['sexe','niveau','jours','deficit'].forEach(k=>segInit(k,k));
 $('#objectif').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const v=b.dataset.v,a=form.objectifs;
   if(a.includes(v)){if(a.length>1)form.objectifs=a.filter(x=>x!==v)}else form.objectifs=GORDER.filter(x=>a.includes(x)||x===v);segSync()});
 $('#mode').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;form.mode=b.dataset.v;segSync()});
 function loadForm(){
   if(!profile){form.mode=EQS.use&&EQS.list.some(k=>k!=='chaise')?'mat':'pdc';segSync();return}
-  Object.assign(form,{sexe:profile.sexe,niveau:String(profile.niveau),objectifs:goalsOf(profile),jours:String(profile.jours),mode:profileMode(profile)});
+  Object.assign(form,{sexe:profile.sexe,niveau:String(profile.niveau),objectifs:goalsOf(profile),jours:String(profile.jours),mode:profileMode(profile),deficit:profile.deficit||'modere'});
   $('#age').value=profile.age;$('#poids').value=profile.poids;$('#taille').value=profile.taille;
   $('#noJump').checked=!!profile.noJump;$('#chair').checked=profile.chair!==false;
   segSync();
@@ -1025,26 +1057,48 @@ $('#btnGen').onclick=()=>{
   }
   err.style.display='none';
   const week=profile&&goalsKey(profile)===goalsKey({objectifs:form.objectifs})&&profile.niveau==form.niveau?profile.week||1:1;
-  profile={sexe:form.sexe,age,poids,taille,niveau:+form.niveau,objectifs:[...form.objectifs],jours:+form.jours,mode:form.mode,noJump:$('#noJump').checked,chair:$('#chair').checked,week};
+  profile={sexe:form.sexe,age,poids,taille,niveau:+form.niveau,objectifs:[...form.objectifs],jours:+form.jours,mode:form.mode,deficit:form.deficit,noJump:$('#noJump').checked,chair:$('#chair').checked,week};
   EQS.use=form.mode==='mat';saveEQS();
   store.set('fc_profile',profile);
   renderBilan();renderProg();show('prog');
 };
+const nf=x=>Math.round(x).toLocaleString('fr-FR');
+function kcalBox(b){
+  const mode=b.diff<-20?'def':b.diff>20?'sur':'main';
+  const pct=Math.round(Math.abs(b.pct)*100),kg=Math.abs(b.kgWeek).toFixed(2).replace('.',',');
+  const w=Math.max(30,Math.min(100,b.kcal/Math.max(b.kcal,b.tdee)*100)),wm=Math.max(30,Math.min(100,b.tdee/Math.max(b.kcal,b.tdee)*100));
+  const lbl={def:`Déficit de ${nf(-b.diff)} kcal par jour (−${pct} %)`,sur:`Surplus de ${nf(b.diff)} kcal par jour (+${pct} %)`,main:'Maintien : ni déficit ni surplus'}[mode];
+  const eff={def:`≈ ${kg} kg perdus par semaine`,sur:`≈ ${kg} kg pris par semaine (dont une partie en muscle)`,main:'Poids stable'}[mode];
+  return`<div class="kcalbox ${mode}">
+    <div class="kc-row"><div><span>Maintien</span><b>${nf(b.tdee)} kcal</b></div><div class="kc-arrow">→</div><div style="text-align:right"><span>Ton objectif</span><b class="kc-target">${nf(b.kcal)} kcal</b></div></div>
+    <div class="kc-bars"><i class="kc-m" style="width:${wm}%"></i><i class="kc-t" style="width:${w}%"></i></div>
+    <div class="kc-diff"><b>${lbl}</b><br><span>${eff}</span></div>
+    ${b.floored?'<p class="small" style="margin:8px 0 0;color:var(--c-orange)">⚠️ Objectif remonté au minimum sûr (ton métabolisme de base) : un déficit plus fort ferait perdre du muscle.</p>':''}
+    <p class="small mut" style="margin:8px 0 0">Maintien = les calories pour garder ton poids (métabolisme de base × ton activité). Estimation à ± 10 % : pèse-toi chaque semaine. Si rien ne bouge en 2 semaines, retire 150 à 200 kcal par jour.</p>
+  </div>`;
+}
+function zoneBox(b){
+  const zl=b.zones.length>1?`Zones ${b.zones[0]}–${b.zones[b.zones.length-1]}`:`Zone ${b.zones[0]}`,bpm=x=>Math.round(b.fcmax*x);
+  return`<div class="zonebox"><div class="sess-h" style="align-items:center;margin:0 0 6px"><h3 style="margin:0">❤️ Zones cardio</h3><span class="small mut">FC max estimée : <b style="color:var(--txt)">${b.fcmax} bpm</b></span></div>
+    <p class="small" style="margin:0 0 8px">Ta cible : <b class="zt">${zl}</b>, soit <b>${bpm(b.zone[0])} à ${bpm(b.zone[1])} bpm</b> pendant le cardio.</p>
+    ${HRZ.map(z=>`<div class="zrow z${z.n}${b.zones.includes(z.n)?' on':''}"><span class="zn">Z${z.n}</span><div class="zt2"><b>${z.t}</b><span>${z.d}</span></div><span class="zb">${bpm(z.lo)}–${bpm(z.hi)}<small> bpm</small></span></div>`).join('')}
+    <p class="small mut" style="margin:8px 0 0">FC max estimée avec la formule de Tanaka (208 − 0,7 × âge). Une montre ou une ceinture cardio donne la mesure la plus fiable.</p></div>`;
+}
 function renderBilan(){
   const box=$('#bilan');if(!profile){box.style.display='none';return}
   const b=bilan(profile);box.style.display='block';
   box.innerHTML=`<h2>Mon bilan</h2>${comboTxt(profile)?`<p class="small" style="margin:-4px 0 10px;color:var(--c-mint)">🎯 ${comboTxt(profile)}</p>`:''}
+  ${kcalBox(b)}
   <div class="stats">
     <div class="stat"><b>${b.imc.toFixed(1)}</b><span>IMC · ${b.imcCat}</span></div>
-    <div class="stat"><b>${b.kcal} kcal</b><span>Apport conseillé / jour</span></div>
     <div class="stat"><b>${b.prot} g</b><span>Protéines / jour</span></div>
     <div class="stat"><b>${b.eau} L</b><span>Eau / jour</span></div>
-    <div class="stat"><b>${Math.round(b.bmr)} kcal</b><span>Métabolisme de base</span></div>
-    <div class="stat"><b>${Math.round(b.fcmax*b.zone[0])}–${Math.round(b.fcmax*b.zone[1])}</b><span>Zone cardio cible (bpm)</span></div>
+    <div class="stat"><b>${Math.round(b.bmr)} kcal</b><span>Métabolisme de base (au repos)</span></div>
   </div>
+  ${zoneBox(b)}
   ${b.low?`<div class="warn">Exercices <b>sans sauts</b> activés${profile.noJump?' (ton choix)':profile.age>=55?' (âge ≥ 55 ans)':' (IMC ≥ 30, pour préserver tes articulations)'}.</div>`:''}
   ${profile.age<16?`<div class="warn">Moins de 16 ans : privilégie la technique et fais-toi accompagner par un adulte ou un coach.</div>`:''}
-  <p class="mut small" style="margin:10px 0 0">Estimations générales (formule de Mifflin-St Jeor). L'IMC ne tient pas compte de la masse musculaire. Ces conseils ne remplacent pas l'avis d'un médecin, surtout en cas de douleur ou de problème de santé.</p>`;
+  <p class="mut small" style="margin:10px 0 0">Estimations générales (métabolisme de base : formule de Mifflin-St Jeor). L'IMC ne tient pas compte de la masse musculaire. Ces conseils ne remplacent pas l'avis d'un médecin, surtout en cas de douleur ou de problème de santé.</p>`;
 }
 function renderProg(){
   const t=$('#t-prog');

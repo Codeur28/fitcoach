@@ -1,5 +1,5 @@
 // Service worker : met l'app en cache pour qu'elle fonctionne hors-ligne.
-const CACHE = 'fitcoach-v10';
+const CACHE = 'fitcoach-v11';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
